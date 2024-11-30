@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "LatokenBotTask": {
+      "commandName": "Project",
+      "environmentVariables": {
+      }
+    }
+  }
+}
