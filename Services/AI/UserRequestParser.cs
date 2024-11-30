@@ -1,14 +1,15 @@
-﻿using Microsoft.SemanticKernel;
+﻿using LatokenBot.Services.Redis;
+using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using System.Text.Json;
 
 namespace LatokenBot.Services.AI;
 
-public class RequestParser(Kernel kernel)
+public class UserRequestParser(KernelProvider kernelProvider)
 {
-    private readonly IChatCompletionService _chatService = kernel.GetRequiredService<IChatCompletionService>();
+    private readonly IChatCompletionService _chatService = kernelProvider.Kernel.GetRequiredService<IChatCompletionService>();
 
-    public async Task<ParsedRequest> AnalyzeCryptoQueryAsync(string query, ChatHistory chatHistory)
+    public async Task<ParsedRequest> AnalyzeCryptoQueryAsync(string query, UserContext userContext)
     {
         string prompt = $$"""
             You are an assistant that extracts the name of a cryptocurrency (in English) and the length of a time period in days from any text in any language.
@@ -41,14 +42,21 @@ public class RequestParser(Kernel kernel)
                  "Language": "Russian"
                }
 
+            Current context:
+            {
+                "CryptoName": "{{userContext.ParsedRequest?.CryptoName ?? "unknown"}}",
+                "PeriodDays": {{userContext.ParsedRequest?.PeriodDays ?? 0}},
+                "Language": "{{userContext.ParsedRequest?.Language ?? "unknown"}}"
+            }
+
             Here is the input query: {{query}}
             """;
 
 
-        chatHistory.AddSystemMessage(prompt);
+        userContext.ChatHistory!.AddSystemMessage(prompt);
 
         string fullResponse = "";
-        await foreach (var message in _chatService.GetStreamingChatMessageContentsAsync(chatHistory))
+        await foreach (var message in _chatService.GetStreamingChatMessageContentsAsync(userContext.ChatHistory))
         {
             fullResponse += message.Content;
         }

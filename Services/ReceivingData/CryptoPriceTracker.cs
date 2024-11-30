@@ -1,17 +1,18 @@
-﻿using System.Text.Json;
+﻿using LatokenBot.Services.AI;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace LatokenBot.Services.ReceivingData;
 
 public class CryptoPriceTracker
 {
-    public static async Task<List<(DateTime date, decimal price)>> GetPriceHistoryAsync(
-        string cryptoId, string currency, DateTime startDate, DateTime endDate)
+    public static async Task<List<(DateTime date, decimal price)>> GetPriceHistoryAsync(ParsedRequest parsedRequest)
     {
-        long startUnix = new DateTimeOffset(startDate).ToUnixTimeSeconds();
-        long endUnix = new DateTimeOffset(endDate).ToUnixTimeSeconds();
+        DateTime today = DateTime.UtcNow.Date;
+        long startUnix = new DateTimeOffset(today.AddDays(-parsedRequest.PeriodDays)).ToUnixTimeSeconds();
+        long endUnix = new DateTimeOffset(today).ToUnixTimeSeconds();
         HttpClient httpClient = new();
-        string url = $"https://api.coingecko.com/api/v3/coins/{cryptoId}/market_chart/range?vs_currency={currency}&from={startUnix}&to={endUnix}";
+        string url = $"https://api.coingecko.com/api/v3/coins/{parsedRequest.CryptoName}/market_chart/range?vs_currency=usd&from={startUnix}&to={endUnix}";
 
         HttpResponseMessage response = await httpClient.GetAsync(url);
         response.EnsureSuccessStatusCode();

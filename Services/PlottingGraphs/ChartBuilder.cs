@@ -1,18 +1,33 @@
 ﻿using ScottPlot;
+using Telegram.Bot.Types;
 
 namespace LatokenBot.Services.PlottingGraphs;
 
-public class ChartBuilder
+public interface IChartBuilder
 {
-    public static void PlotPriceHistory(List<(DateTime date, decimal price)> prices)
+    InputFileStream PlotPriceHistory(List<(DateTime date, decimal price)> prices, string cryptoName);
+}
+
+public class ChartBuilder : IChartBuilder
+{
+    public InputFileStream PlotPriceHistory(List<(DateTime date, decimal price)> prices, string cryptoName)
     {
+        DateTime from = prices.MinBy(price => price.date).date;
+        DateTime to = prices.MaxBy(price => price.date).date;
         Plot plt = new();
-        List<OHLC> p = OHLCBuilder.GenerateOHLC(prices, TimeSpan.FromDays(1));
-        plt.Add.Candlestick(p);
+
+        List<OHLC> data = OHLCBuilder.GenerateOHLC(prices, TimeSpan.FromDays(1));
+        plt.Add.Candlestick(data);
+
         plt.Axes.DateTimeTicksBottom();
 
-        plt.SavePng("Demo.png", 400, 300);
+        plt.Title($"Price History for {cryptoName} ({from:yyyy.MM.dd} - {to:yyyy.MM.dd})");
+        plt.YLabel("Price (USD)");
+        plt.XLabel("Date");
 
-        Console.WriteLine("Chart saved as 'Demo.png'");
+        byte[] imageBytes = plt.GetImageBytes(width: 800, height: 300, format: ImageFormat.Png);
+        var stream = new MemoryStream(imageBytes);
+        stream.Seek(0, SeekOrigin.Begin);
+        return new(stream);
     }
 }

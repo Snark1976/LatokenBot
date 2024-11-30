@@ -1,54 +1,57 @@
-﻿using DotNetEnv;
-using LatokenBot.Services.AI;
+﻿using LatokenBot.Services.AI;
 using LatokenBot.Services.PlottingGraphs;
 using LatokenBot.Services.ReceivingData;
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
+using LatokenBot.Services.Redis;
+using LatokenBot.Services.Telegram;
+using LatokenBot.Services.Telegram.Handlers;
+using LatokenBot.Services.Telegram.Services;
+using Microsoft.Extensions.Options;
+using NewsAPI;
+using StackExchange.Redis;
+using Telegram.Bot;
 
-namespace LatokenBot;
-
-public class Program
-{
-    public static async Task Main(string[] args)
+IHost host = Host.CreateDefaultBuilder(args)
+    .ConfigureServices((context, services) =>
     {
-        // Загрузка секретов из .env
-        Env.Load(); 
+        services.Configure<BotConfiguration>(context.Configuration.GetSection("BotConfiguration"));
+        services.AddHttpClient("telegram_bot_client").RemoveAllLoggers()
+                .AddTypedClient<ITelegramBotClient>((httpClient, sp) =>
+                {
+                    BotConfiguration? botConfiguration = sp.GetService<IOptions<BotConfiguration>>()?.Value;
+                    ArgumentNullException.ThrowIfNull(botConfiguration);
+                    TelegramBotClientOptions options = new(botConfiguration.BotToken);
+                    return new TelegramBotClient(options, httpClient);
+                });
 
-        var builder = Kernel.CreateBuilder();
-        builder.AddOpenAIChatCompletion(
-            "gpt-4-1106-preview",
-            Environment.GetEnvironmentVariable("openai-api-key")!);
-        var kernel = builder.Build();
+        services.AddSingleton<IConnectionMultiplexer>(sp =>
+            ConnectionMultiplexer.Connect(context.Configuration.GetSection("Redis").GetValue<string>("ConnectionString")!));
 
-        RequestParser requestParser = new(kernel);
-        string queryForUser = "Enter you query";
-        var chatHistory = new ChatHistory();
-        string query = string.Empty;
-        ParsedRequest parsedRequest = null!;
-        while (query != "Exit")
+        services.Configure<NewsApiSettings>(context.Configuration.GetSection("NewsApi"));
+        services.AddScoped<NewsApiClient>(sp =>
         {
-            Console.Write($"Assistant > {queryForUser}\nUser >");
-            query = Console.ReadLine()!;
-            parsedRequest = await requestParser.AnalyzeCryptoQueryAsync(query, chatHistory);
-            if (string.IsNullOrEmpty(parsedRequest.ClarifyingQuestion)) break;
-            queryForUser = parsedRequest.ClarifyingQuestion;
-        }
-        Console.WriteLine(parsedRequest);
-        List<string> newsArticles = await NewsFetcher.FetchNewsAsync(parsedRequest.CryptoName, parsedRequest.PeriodDays);
-        DateTime today = DateTime.UtcNow.Date;
-        List<(DateTime date, decimal price)> priceHistory =
-            await CryptoPriceTracker.GetPriceHistoryAsync(parsedRequest.CryptoName, "usd", today.AddDays(-parsedRequest.PeriodDays), today);
-        CryptoSummaryGenerator summaryGenerator = new(kernel);
-        string summary = await summaryGenerator.GenerateSummaryAsync(
-            cryptoName: parsedRequest.CryptoName,
-            language: parsedRequest.Language,
-            startDate: today.AddDays(-parsedRequest.PeriodDays),
-            endDate: today,
-            priceHistory: priceHistory,
-            newsArticles: newsArticles
-            );
-        Console.WriteLine(summary);
-        ChartBuilder.PlotPriceHistory(priceHistory);
-        Console.ReadLine();
-    }
-}
+            var apiKey = sp.GetRequiredService<IOptions<NewsApiSettings>>().Value.ApiKey;
+            return new NewsApiClient(apiKey);
+        });
+
+        services
+            .AddSingleton<RedisContextManager>()
+            .AddSingleton<KernelProvider>();
+
+        services
+            .AddScoped<UpdateHandler>()
+            .AddScoped<ReceiverService>()
+            .AddScoped<UserRequestParser>()
+            .AddScoped<CryptoSummaryGenerator>()
+            .AddScoped<MessageHandler>()
+            .AddScoped<INewsFetcher, NewsFetcher>();
+
+
+        services
+            .AddTransient<IChartBuilder, ChartBuilder>();
+
+        services
+            .AddHostedService<PollingService>();
+    })
+    .Build();
+
+await host.RunAsync();
