@@ -1,4 +1,7 @@
 ﻿using DotNetEnv;
+using LatokenBot.Services.AI;
+using LatokenBot.Services.PlottingGraphs;
+using LatokenBot.Services.ReceivingData;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 

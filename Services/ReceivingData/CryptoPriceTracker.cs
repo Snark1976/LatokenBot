@@ -1,7 +1,7 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace LatokenBot;
+namespace LatokenBot.Services.ReceivingData;
 
 public class CryptoPriceTracker
 {

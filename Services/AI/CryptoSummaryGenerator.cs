@@ -2,7 +2,7 @@
 using Microsoft.SemanticKernel.ChatCompletion;
 using System.Text.Json;
 
-namespace LatokenBot;
+namespace LatokenBot.Services.AI;
 
 public class CryptoSummaryGenerator(Kernel kernel)
 {

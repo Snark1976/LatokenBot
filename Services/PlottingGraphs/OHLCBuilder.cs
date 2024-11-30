@@ -1,7 +1,7 @@
 ﻿using ScottPlot;
 
 
-namespace LatokenBot;
+namespace LatokenBot.Services.PlottingGraphs;
 
 public class OHLCBuilder
 {
@@ -22,5 +22,5 @@ public class OHLCBuilder
                     span: timeSpan
                 );
             }
-        ).ToList();    
+        ).ToList();
 }

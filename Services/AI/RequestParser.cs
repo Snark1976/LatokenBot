@@ -2,7 +2,7 @@
 using Microsoft.SemanticKernel.ChatCompletion;
 using System.Text.Json;
 
-namespace LatokenBot;
+namespace LatokenBot.Services.AI;
 
 public class RequestParser(Kernel kernel)
 {
@@ -44,7 +44,7 @@ public class RequestParser(Kernel kernel)
             Here is the input query: {{query}}
             """;
 
-        
+
         chatHistory.AddSystemMessage(prompt);
 
         string fullResponse = "";

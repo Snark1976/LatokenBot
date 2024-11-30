@@ -1,6 +1,6 @@
 ﻿using ScottPlot;
 
-namespace LatokenBot;
+namespace LatokenBot.Services.PlottingGraphs;
 
 public class ChartBuilder
 {
